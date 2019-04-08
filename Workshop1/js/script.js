@@ -10,10 +10,15 @@ var bookCategoryList = [
 
 // 載入書籍資料
 function loadBookData() {
-    bookDataFromLocalStorage = JSON.parse(localStorage.getItem('bookData'));
-    if (bookDataFromLocalStorage == null) {
-        bookDataFromLocalStorage = bookData;
-        localStorage.setItem('bookData', JSON.stringify(bookDataFromLocalStorage));
+    if (localStorage.setDataChecker) {
+        localStorage.setDataChecker = 1;
+    } else {
+        localStorage.setItem("setDataChecker", 0);
+        bookDataFromLocalStorage = JSON.parse(localStorage.getItem('bookData'));
+        if (bookDataFromLocalStorage == null) {
+            bookDataFromLocalStorage = bookData;
+            localStorage.setItem('bookData', JSON.stringify(bookDataFromLocalStorage));
+        }
     }
 }
 

@@ -12,6 +12,11 @@
     <link rel="stylesheet" href="./css/fontawesome.css">
 
     <title>圖書館</title>
+    <style>
+        .k-numerictextbox .k-input {
+            text-align: right;
+        }
+    </style>    
 </head>
 
 <body>
@@ -21,63 +26,335 @@
         </nav>
     </header>
     <main>
-        <div class="uk-container align-center">
-            <div class="uk-card uk-text-left uk-width-1-3">
+        <div class="uk-container align-center ">
+            
+            <!--
+            <input type="button" onclick="testB()" value="resetData"/>
+            -->
+            <div id="dialog" style="display: none">
+                <span id="staticNotification"></span>
                 <form id="book_form">
                     <ul class="fieldlist">
                         <li>
-                            <img class="book-image" src="image/database.jpg" alt="">
+                            <img id="cImage" class="book-image" src="image/database.jpg" alt="">
+                            
                         </li>
                         <li>
                             <label class="required">圖書類別</label>
-                            <select id="book_category"></select>
+                            <input id="book_category" onchange="changeImage()" style="width: 100%"/>
                         </li>
                         <li>
                             <label class="required">書名</label>
-                            <input id="book_name" type="text" />
+                            <input id="book_name" class="k-textbox" type="text" style="width: 100%"/>
                         </li>
                         <li>
                             <label class="required">作者</label>
-                            <input id="book_author" type="text" />
+                            <input id="book_author" class="k-textbox" type="text" style="width: 100%"/>
                         </li>
                         <li>
                             <label class="required">購買日期</label>
-                            <input id="bought_datepicker"/>
+                            <input id="bought_datepicker" style="width: 100%"/>
                         </li>
                         <li>
                             <label>送達日期</label>
-                            <input id="delivered_datepicker" />
+                            <input id="delivered_datepicker" style="width: 100%"/>
                         </li>
                         <li>
                             <label class="required">金額</label>
-                            <input id="book_price" type="text"/>
+                            <input id="book_price" type="number" style="width: 100%" min=0 onkeyup="calculateTotal()" onchange="calculateTotal()"/>
                         </li>
-                        <li>
+                        <li >
                             <label class="required">數量</label>
-                            <input id="book_amount" type="text" />
+                            <input id="book_amount" type="number" style="width: 100%" min=1 onkeyup="calculateTotal()" onchange="calculateTotal()"/>
+                            <div id="appendto" class="demo-section k-content"></div>
                         </li>
-                        <li>
-                            <span>
+                        <li style="text-align: right"> 
+                            <span >
                                 總計&nbsp;<span id="book_total">0</span> 元
                             </span>
                         </li>
                         <li class="uk-text-right">
-                            <button type="button" class="k-button k-primary btn-add-book" id="save_book">新增</button>
+                            <input type="button" class="k-button k-primary btn-add-book" id="save_book" value="新增"/>
                         </li>
                     </ul>
                 </form>
+
             </div>
-            <button type="button" id="add_book" class="k-button k-primary btn-add-book">新增書籍</button>
-            <div id="book_grid">
-            </div>
+            <button type="button" id="add_book" class="k-button k-primary btn-add-book" onclick="openAddWindow()">新增書籍</button>
+            <div id="book_grid"></div>
+            <span class="k-button-icon"></span>
+
         </div>
+        <div id="delete_dialog"></div>
     </main>
-    <footer></footer>
     <script type="text/javascript" src="data/book-data.js"></script>
     <script src="./js/jquery-2.1.4.min.js"></script>
     <script src="./js/kendo.all.min.js"></script>
     <script src="./js/uikit.min.js"></script>
     <script src="./js/script.js"></script>
-</body>
+    <script type="text/x-kendo-template" id="template">
+        <div class="toolbar">
+            <input id="searchBook" onkeyup="gridFilter(this)"  class="k-textbox" placeholder="我想要找..." style="width:40%;"/>
+        </div>
+    </script>
+    <script src="./js/kendo.culture.zh-TW.min.js"></script>
+    <script>
+        var book_category_array = ["database", "home", "internet", "language","system"];
+        
+        $(document).ready(function () {
+            
 
+            
+
+            $("#bought_datepicker").kendoDatePicker({
+                value: new Date().toLocaleDateString(),
+                culture: "zh-TW"
+            });
+
+            $("#delivered_datepicker").kendoDatePicker({
+                value: new Date().toLocaleDateString(),
+                culture: "zh-TW"
+            });
+            $("#book_price").kendoNumericTextBox({
+                format: "{0:n0}"
+            });
+            $("#book_amount").kendoNumericTextBox({
+                format: "{0:n0}"
+            });
+            
+            
+            
+            
+            $("#book_category").kendoDropDownList({
+                dataSource: book_category_array
+            });
+            $("#book_grid").kendoGrid({
+                dataSource: {
+                    data: JSON.parse(localStorage.getItem("bookData")),
+                    pageSize: 20
+                },
+                height: 750,
+                sortable: true,
+                pageable: {
+                    refresh: true,
+                    pageSizes: true,
+                    input: true,
+                    numeric: false,
+                    buttonCount: 1
+                },
+                toolbar: kendo.template($("#template").html()),
+                columns: [
+                    {
+                        command: [{
+                            text: "刪除", click: function (e) {
+                                var dialog = $('#delete_dialog');
+                                deleteBookDialog();
+                                dialog.data("kendoDialog").open();
+                                var id = e.target.parentNode.parentNode.children[1].innerText;
+                                function deleteBook() {
+                                    var books = JSON.parse(localStorage.getItem("bookData"));
+                                    for (var i = 0; i < books.length; i++) {
+                                        if (books[i].BookId == id) {
+                                            books.splice(i, 1);
+                                        }
+                                    }
+                                    books = JSON.stringify(books);
+                                    localStorage.setItem("bookData", books);
+                                    refresh();
+                                }
+
+                                function deleteBookDialog() {
+                                    
+                                    dialog.kendoDialog({
+                                        width: "450px",
+                                        title: "SURE DELETE?",
+                                        closable: false,
+                                        modal: false,
+                                        content: "<p>確定要刪除 <strong>"+e.target.parentNode.parentNode.children[2].innerText+"</strong>   嗎?<p>",
+                                        actions: [
+                                            { text: 'exit' },
+                                            { text: 'delete', action: deleteBook },
+                                        ]
+                                    });
+                                }
+                                 
+                                
+                             }
+                        }], title: " ", width: "150px"
+                    },
+                    { field: "BookId", title: "書籍編號"}, 
+                    { field: "BookName", title: "書籍名稱" },
+                    { field: "BookCategory", title: "書籍種類" },
+                    { field: "BookAuthor", title: "作者" },
+                    { field: "BookBoughtDate", title: "購買日期" },
+                    {
+                        field: "BookDeliveredDate", title: "送達狀態",
+                        template: function (dataItem) {
+                            var now = new Date();
+                            var BookDeliveredDate = new Date(dataItem.BookDeliveredDate);
+                            if (now > BookDeliveredDate) {
+                                return "<span class='k-button k-primary' title='" + dataItem.BookDeliveredDate + "' data-role='tooltip' data-auto-hide='false' data-position='top' data-bind='events: { show: onShow, hide: onHide }'></span>";
+                            } else {
+                                if (dataItem.BookDeliveredDate != undefined) {
+                                    return "<span class='k-button ' title='" + dataItem.BookDeliveredDate + "' data-role='tooltip' data-auto-hide='false' data-position='top' data-bind='events: { show: onShow, hide: onHide }'></span>";
+                                } else {
+                                    return "<span class='k-button ' title='無送達日期' data-role='tooltip' data-auto-hide='false' data-position='top' data-bind='events: { show: onShow, hide: onHide }'></span>";
+                                }
+                            }
+                        }
+                    },
+                    { field: "BookPrice", format: "{0:n0}元", title: "金額" },
+                    { field: "BookAmount", title: "數量" },
+                    { field: "BookTotal", format: "{0:n0}元", title: "總計" }
+                ]
+            });
+            
+        });
+        
+        var addWindow = $("#dialog");
+        function openAddWindow() {
+            addWindow.kendoWindow({
+                width: "600px",
+                height: "700px",
+                title: "",
+                modal: true,
+                visible: true,
+                close: function(e) {
+                }
+            });
+            var popup = $("#dialog").data('kendoWindow');
+            popup.open();
+            popup.center();
+            $("#book_category").kendoDropDownList({
+                dataSource: book_category_array
+            });
+        }
+        var staticNotification = $("#staticNotification").kendoNotification({
+            appendTo: "#appendto"
+        }).data("kendoNotification");
+        $("#save_book").click(function () {
+            var book_category = document.getElementById("book_category");
+            var book_name = document.getElementById("book_name");
+            var book_author = document.getElementById("book_author");
+            var bought_datepicker = document.getElementById("bought_datepicker");
+            var delivered_datepicker = document.getElementById("delivered_datepicker");
+            var book_price = document.getElementById("book_price");
+            var book_amount = document.getElementById("book_amount");
+            if (book_category.value == "" ) {
+                staticNotification.show(kendo.toString('請選擇類別'), "error");
+            } else if (book_name.value =="") {
+                staticNotification.show('請填寫書名', "error");
+            } else if (book_author.value == "") {
+                staticNotification.show('請填寫作者', "error");
+            } else if (bought_datepicker.value == "") {
+                staticNotification.show('請填寫購買日期', "error");
+            } else if (bought_datepicker.value > delivered_datepicker.value && delivered_datepicker.value !="") {
+                staticNotification.show('送達日期不得大於購買日期', "error");
+            }else if (book_price.value == "") {
+                staticNotification.show('請填寫金額', "error");
+            }else if (book_amount.value == "") {
+                staticNotification.show('請填寫數量', "error");
+            } else {
+                var total = book_amount.value * book_price.value;
+                var sbookdata = JSON.parse(localStorage.getItem("bookData"))
+                var newbook = {
+                    "BookId": sbookdata[sbookdata.length-1].BookId+1,
+                    "BookCategory": book_category.value,
+                    "BookName": book_name.value,
+                    "BookAuthor": book_author.value,
+                    "BookBoughtDate": bought_datepicker.value,
+                    "BookDeliveredDate": delivered_datepicker.value,
+                    "BookPrice": book_price.value,
+                    "BookAmount": book_amount.value,
+                    "BookTotal": total
+                }
+                
+                sbookdata.push(newbook);
+                sbookdata = JSON.stringify(sbookdata);
+                localStorage.setItem("bookData", sbookdata);
+                refresh();
+                alert("新增成功");
+                book_category.value = "database"
+                book_name.value = "";
+                book_author.value = "";
+                book_price.value = 0;
+                book_amount.value = 0;
+                bought_datepicker.value = "";
+                delivered_datepicker.value = "";
+                $("#dialog").data('kendoWindow').close();
+            }
+
+            //$("#dialog").data('kendoWindow').close();
+        });
+        function changeImage() {
+            var cImage = document.getElementById("cImage");
+            var book_category = document.getElementById("book_category");
+            cImage.src = "image/"+book_category.value+".jpg";
+        }
+
+        function refresh() {
+            var dataSource = new kendo.data.DataSource({
+                data: JSON.parse(localStorage.getItem("bookData")),
+                pageSize: 20
+            });
+            var grid = $("#book_grid").data("kendoGrid");
+            grid.setDataSource(dataSource);
+        }
+
+        function testB() {
+            localStorage.clear();
+        }
+
+        
+        function gridFilter(e) {
+            var data;
+            if (e.value !="") {
+                data = JSON.parse(localStorage.getItem("bookData")).filter(function (item, index, array) {
+                    if (item.BookDeliveredDate != undefined) {
+                        return item.BookDeliveredDate.toString("yyyyMMdd").indexOf(e.value) > -1 ||
+                            item.BookId.toString().indexOf(e.value) > -1 ||
+                            item.BookCategory.indexOf(e.value) > -1 ||
+                            item.BookAuthor.indexOf(e.value) > -1 ||
+                            item.BookBoughtDate.toString("yyyyMMdd").indexOf(e.value) > -1 ||
+                            item.BookPrice.toString().indexOf(e.value) > -1 ||
+                            item.BookAmount.toString().indexOf(e.value) > -1 ||
+                            item.BookTotal.toString().indexOf(e.value) > -1
+                    }
+                    return item.BookId.toString().indexOf(e.value) > -1 ||
+                        item.BookCategory.indexOf(e.value) > -1 ||
+                        item.BookAuthor.indexOf(e.value) > -1 ||
+                        item.BookBoughtDate.toString("yyyyMMdd").indexOf(e.value) > -1 ||
+                        item.BookPrice.toString().indexOf(e.value) > -1 ||
+                        item.BookAmount.toString().indexOf(e.value) > -1 ||
+                        item.BookTotal.toString().indexOf(e.value) > -1
+                });
+            } else {
+                data = JSON.parse(localStorage.getItem("bookData"));
+            }
+           
+            var dataSource = new kendo.data.DataSource({
+                data: data,
+                pageSize: 20
+            });
+            var grid = $("#book_grid").data("kendoGrid");
+            grid.setDataSource(dataSource);
+        }
+
+        function calculateTotal() {
+            var book_amount = document.getElementById("book_amount");
+            var book_price = document.getElementById("book_price");
+            var book_total = document.getElementById("book_total");
+            var total = book_amount.value * book_price.value;
+            if (total != "NaN") {
+                book_total.innerText = total.toLocaleString('en-US', { minimumFractionDigits: 0 });
+            } else {
+                book_total.innerText = "0";
+            }
+        }
+
+        
+
+    </script>
+</body>
+    
 </html>
